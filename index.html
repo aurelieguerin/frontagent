@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - Prueba de API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.bot {
+            text-align: left;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.bot .message-bubble {
+            background: white;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+        }
+
+        .message-details {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            opacity: 0.8;
+        }
+
+        .message.user .message-details {
+            text-align: right;
+        }
+
+        .message.bot .message-details {
+            text-align: left;
+        }
+
+        .intent-badge {
+            display: inline-block;
+            background: #f3f4f6;
+            color: #374151;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            margin: 0 4px;
+        }
+
+        .entities-tag {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 10px;
+            margin: 0 2px;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s ease;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+            font-family: inherit;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .control-btn {
+            background: #f3f4f6;
+            color: #374151;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: #e5e7eb;
+        }
+
+        .loading {
+            display: inline-block;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+            padding: 12px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+
+        .intents-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .intent-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .intent-name {
+            font-weight: bold;
+            color: #374151;
+            margin-bottom: 5px;
+        }
+
+        .intent-description {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .close-modal {
+            background: #e5e7eb;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            .message-bubble {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-indicator" id="statusIndicator"></div>
+            <h1>🤖 Chat API Tester</h1>
+            <p>Prueba tu agente de OpenAI</p>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-bubble">
+                    ¡Hola! 👋 Soy tu asistente de API. Puedo ayudarte con la gestión de usuarios y envío de emails. ¿En qué puedo ayudarte?
+                </div>
+                <div class="message-details">
+                    Sistema
+                </div>
+            </div>
+        </div>
+
+        <div class="chat-input">
+            <div class="control-buttons">
+                <button class="control-btn" onclick="mostrarIntenciones()">📋 Ver Intenciones</button>
+                <button class="control-btn" onclick="verificarSalud()">🔍 Estado API</button>
+                <button class="control-btn" onclick="limpiarChat()">🗑️ Limpiar</button>
+            </div>
+            <div class="input-group">
+                <textarea 
+                    id="messageInput" 
+                    class="message-input" 
+                    placeholder="Escribe tu mensaje aquí..."
+                    rows="1"></textarea>
+                <button class="send-btn" id="sendBtn" onclick="enviarMensaje()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para mostrar intenciones -->
+    <div class="intents-modal" id="intentsModal" onclick="cerrarModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎯 Intenciones Disponibles</h2>
+            </div>
+            <div id="intentsList"></div>
+            <button class="close-modal" onclick="cerrarModal()">Cerrar</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de la API
+        const API_BASE_URL = 'http://localhost:5000/api'; // Ajusta según tu configuración
+        let mensajes = [];
+        let cargando = false;
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', function() {
+            verificarSalud();
+            
+            // Auto-resize del textarea
+            const messageInput = document.getElementById('messageInput');
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+            });
+
+            // Enviar con Enter (Shift+Enter para nueva línea)
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    enviarMensaje();
+                }
+            });
+        });
+
+        async function enviarMensaje() {
+            const input = document.getElementById('messageInput');
+            const mensaje = input.value.trim();
+            
+            if (!mensaje || cargando) return;
+
+            // Agregar mensaje del usuario
+            agregarMensaje(mensaje, 'user');
+            input.value = '';
+            input.style.height = 'auto';
+            
+            // Mostrar indicador de carga
+            cargando = true;
+            actualizarBotonEnviar();
+            agregarMensajeCarga();
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ mensaje: mensaje })
+                });
+
+                const data = await response.json();
+                
+                // Remover mensaje de carga
+                removerMensajeCarga();
+
+                if (data.success) {
+                    agregarMensajeBot(data);
+                } else {
+                    mostrarError('Error del servidor: ' + (data.error || 'Error desconocido'));
+                }
+            } catch (error) {
+                removerMensajeCarga();
+                mostrarError('Error de conexión: ' + error.message);
+            } finally {
+                cargando = false;
+                actualizarBotonEnviar();
+            }
+        }
+
+        function agregarMensaje(texto, tipo, detalles = null) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${tipo}`;
+            
+            let detailsHtml = '';
+            if (detalles) {
+                let entidadesHtml = '';
+                if (detalles.entidades && Object.keys(detalles.entidades).length > 0) {
+                    entidadesHtml = Object.entries(detalles.entidades)
+                        .map(([key, value]) => `<span class="entities-tag">${key}: ${value}</span>`)
+                        .join(' ');
+                }
+                
+                detailsHtml = `
+                    <div class="message-details">
+                        <span class="intent-badge">${detalles.intencion}</span>
+                        ${entidadesHtml}
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">${texto}</div>
+                ${detailsHtml}
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            mensajes.push({ tipo, texto, detalles, timestamp: new Date() });
+        }
+
+        function agregarMensajeBot(data) {
+            agregarMensaje(data.respuesta, 'bot', {
+                intencion: data.intencion,
+                entidades: data.entidades
+            });
+        }
+
+        function agregarMensajeCarga() {
+            const chatMessages = document.getElementById('chatMessages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message bot';
+            loadingDiv.id = 'loadingMessage';
+            loadingDiv.innerHTML = `
+                <div class="message-bubble">
+                    <span class="loading">Procesando...</span> 🤔
+                </div>
+            `;
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removerMensajeCarga() {
+            const loadingMessage = document.getElementById('loadingMessage');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        function mostrarError(mensaje) {
+            const chatMessages = document.getElementById('chatMessages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = mensaje;
+            chatMessages.appendChild(errorDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function actualizarBotonEnviar() {
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = cargando;
+            
+            if (cargando) {
+                sendBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"></path>
+                    </svg>
+                `;
+            } else {
+                sendBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                    </svg>
+                `;
+            }
+        }
+
+        async function mostrarIntenciones() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat/intenciones`);
+                const data = await response.json();
+                
+                const intentsList = document.getElementById('intentsList');
+                intentsList.innerHTML = '';
+                
+                Object.entries(data.intenciones).forEach(([intent, description]) => {
+                    const intentDiv = document.createElement('div');
+                    intentDiv.className = 'intent-item';
+                    intentDiv.innerHTML = `
+                        <div class="intent-name">${intent}</div>
+                        <div class="intent-description">${description}</div>
+                    `;
+                    intentsList.appendChild(intentDiv);
+                });
+                
+                document.getElementById('intentsModal').style.display = 'flex';
+            } catch (error) {
+                mostrarError('Error al cargar intenciones: ' + error.message);
+            }
+        }
+
+        async function verificarSalud() {
+            const statusIndicator = document.getElementById('statusIndicator');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/chat/health`);
+                const data = await response.json();
+                
+                if (data.status === 'ok') {
+                    statusIndicator.className = 'status-indicator';
+                    statusIndicator.title = 'API funcionando correctamente';
+                } else {
+                    statusIndicator.className = 'status-indicator disconnected';
+                    statusIndicator.title = 'API con problemas: ' + data.error;
+                }
+            } catch (error) {
+                statusIndicator.className = 'status-indicator disconnected';
+                statusIndicator.title = 'No se puede conectar con la API';
+            }
+        }
+
+        function limpiarChat() {
+            document.getElementById('chatMessages').innerHTML = `
+                <div class="message bot">
+                    <div class="message-bubble">
+                        ¡Hola! 👋 Soy tu asistente de API. Puedo ayudarte con la gestión de usuarios y envío de emails. ¿En qué puedo ayudarte?
+                    </div>
+                    <div class="message-details">
+                        Sistema
+                    </div>
+                </div>
+            `;
+            mensajes = [];
+        }
+
+        function cerrarModal(event) {
+            if (event && event.target.classList.contains('modal-content')) {
+                return;
+            }
+            document.getElementById('intentsModal').style.display = 'none';
+        }
+
+        // Verificar salud cada 30 segundos
+        setInterval(verificarSalud, 30000);
+    </script>
+</body>
+</html>
